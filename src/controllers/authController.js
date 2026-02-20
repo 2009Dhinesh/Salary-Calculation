@@ -1,0 +1,168 @@
+const User = require('../models/User');
+const Category = require('../models/Category');
+const jwt = require('jsonwebtoken');
+
+// Generate JWT Token
+const generateToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRE });
+};
+
+// Default categories to seed for new users
+const defaultCategories = [
+  // Expense categories
+  { name: 'Food & Dining', type: 'expense', icon: '🍽️', color: '#FF6B6B' },
+  { name: 'Transportation', type: 'expense', icon: '🚗', color: '#4ECDC4' },
+  { name: 'Shopping', type: 'expense', icon: '🛍️', color: '#FFE66D' },
+  { name: 'Entertainment', type: 'expense', icon: '🎬', color: '#A8E6CF' },
+  { name: 'Health & Medical', type: 'expense', icon: '🏥', color: '#F8B500' },
+  { name: 'Utilities', type: 'expense', icon: '⚡', color: '#6C63FF' },
+  { name: 'Education', type: 'expense', icon: '📚', color: '#FF8B94' },
+  { name: 'Housing & Rent', type: 'expense', icon: '🏠', color: '#98DDCA' },
+  { name: 'Personal Care', type: 'expense', icon: '💄', color: '#D4A5A5' },
+  { name: 'Investments', type: 'expense', icon: '📈', color: '#85C1E9' },
+  { name: 'Travel', type: 'expense', icon: '✈️', color: '#82E0AA' },
+  { name: 'Other Expense', type: 'expense', icon: '💸', color: '#BDC3C7' },
+  // Income categories
+  { name: 'Salary', type: 'income', icon: '💼', color: '#27AE60' },
+  { name: 'Freelance', type: 'income', icon: '💻', color: '#2ECC71' },
+  { name: 'Business', type: 'income', icon: '🏢', color: '#16A085' },
+  { name: 'Investment', type: 'income', icon: '📊', color: '#1ABC9C' },
+  { name: 'Rental Income', type: 'income', icon: '🏘️', color: '#3498DB' },
+  { name: 'Gift', type: 'income', icon: '🎁', color: '#9B59B6' },
+  { name: 'Other Income', type: 'income', icon: '💵', color: '#2C3E50' },
+];
+
+// @desc    Register user
+// @route   POST /api/auth/register
+// @access  Public
+const register = async (req, res, next) => {
+  try {
+    const { name, email, password } = req.body;
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: 'User already exists with this email' });
+    }
+
+    const user = await User.create({ name, email, password });
+
+    // Seed default categories for new user
+    const categoriesWithUser = defaultCategories.map((cat) => ({
+      ...cat,
+      user: user._id,
+      isDefault: true,
+    }));
+    await Category.insertMany(categoriesWithUser);
+
+    const token = generateToken(user._id);
+
+    res.status(201).json({
+      success: true,
+      message: 'Registration successful',
+      token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        currency: user.currency,
+        avatar: user.avatar,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Login user
+// @route   POST /api/auth/login
+// @access  Public
+const login = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email }).select('+password');
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+    }
+
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+    }
+
+    const token = generateToken(user._id);
+
+    res.json({
+      success: true,
+      message: 'Login successful',
+      token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        currency: user.currency,
+        avatar: user.avatar,
+        monthlyIncome: user.monthlyIncome,
+        notifications: user.notifications,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get current user
+// @route   GET /api/auth/me
+// @access  Private
+const getMe = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+    res.json({ success: true, user });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Update user profile
+// @route   PUT /api/auth/profile
+// @access  Private
+const updateProfile = async (req, res, next) => {
+  try {
+    const { name, currency, monthlyIncome, notifications } = req.body;
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { name, currency, monthlyIncome, notifications },
+      { new: true, runValidators: true }
+    );
+
+    res.json({ success: true, message: 'Profile updated', user });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Change password
+// @route   PUT /api/auth/change-password
+// @access  Private
+const changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    const user = await User.findById(req.user._id).select('+password');
+    const isMatch = await user.matchPassword(currentPassword);
+
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: 'Current password is incorrect' });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.json({ success: true, message: 'Password changed successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { register, login, getMe, updateProfile, changePassword };
