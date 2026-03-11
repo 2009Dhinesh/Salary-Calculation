@@ -223,6 +223,7 @@ const forgotPassword = async (req, res, next) => {
 
     try {
       const sendEmail = require('../utils/sendEmail');
+      console.log(`[OTP] Attempting to send OTP email to ${user.email} in ${process.env.NODE_ENV} mode`);
       await sendEmail({
         email: user.email,
         subject: 'Password Reset OTP',
@@ -231,20 +232,20 @@ const forgotPassword = async (req, res, next) => {
       });
       res.json({ success: true, message: 'OTP sent to email' });
     } catch (err) {
-      console.error('Email send failed:', err.message);
+      console.error('❌ [OTP] Email send failed:', err.message);
       
       // For development, if email fails, we still return success but log OTP to console
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
         console.log('-----------------------------------------');
         console.log(`🔑 DEVELOPMENT OTP: ${otp} (for email: ${user.email})`);
         console.log('-----------------------------------------');
 
         return res.json({ 
           success: true, 
-          message: 'OTP generated (Email service not configured, check server console)', 
+          message: 'OTP generated (Email service failed, check server console)', 
         });
       }
-      res.status(500).json({ success: false, message: 'Email could not be sent' });
+      res.status(500).json({ success: false, message: `Email could not be sent: ${err.message}` });
     }
   } catch (error) {
     next(error);
