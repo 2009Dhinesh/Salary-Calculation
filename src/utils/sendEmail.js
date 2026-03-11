@@ -1,46 +1,45 @@
-const nodemailer = require('nodemailer');
+const axios = require('axios');
 
 const sendEmail = async (options) => {
-  // Check if SMTP is configured or if it contains placeholders
-  if (!process.env.SMTP_HOST || process.env.SMTP_HOST === 'your_smtp_host') {
-    throw new Error('SMTP is not configured. Please set real SMTP values in your .env file.');
+  // Check if API Key (SMTP Password) is configured
+  if (!process.env.SMTP_PASSWORD || process.env.SMTP_PASSWORD === 'your_smtp_password') {
+    throw new Error('Brevo API Key (SMTP_PASSWORD) is not configured in .env');
   }
 
-  const isSecure = process.env.SMTP_PORT == 465;
-  
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: process.env.SMTP_PORT,
-    secure: isSecure, // true for 465, false for other ports
-    auth: {
-      user: process.env.SMTP_EMAIL,
-      pass: process.env.SMTP_PASSWORD,
-    },
-    // Add timeout to prevent long hangs
-    connectionTimeout: 10000, 
-    greetingTimeout: 10000,
-    socketTimeout: 15000,
-  });
-
-  const message = {
-    from: `${process.env.FROM_NAME} <${process.env.FROM_EMAIL}>`,
-    to: options.email,
-    subject: options.subject,
-    text: options.message,
-    html: options.html,
-  };
-
-  console.log(`📧 Sending email to: ${options.email} using ${process.env.SMTP_HOST}:${process.env.SMTP_PORT}`);
+  console.log(`📧 Sending email to: ${options.email} via Brevo API`);
 
   try {
-    const info = await transporter.sendMail(message);
-    console.log('✅ Message sent: %s', info.messageId);
-    return info;
+    const data = {
+      sender: { 
+        name: process.env.FROM_NAME || 'Money Tracker', 
+        email: process.env.FROM_EMAIL 
+      },
+      to: [{ email: options.email }],
+      subject: options.subject,
+      textContent: options.message,
+      htmlContent: options.html,
+    };
+
+    const config = {
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'api-key': process.env.SMTP_PASSWORD, // Brevo v3 API Key is the same as SMTP Password
+      },
+    };
+
+    const response = await axios.post('https://api.brevo.com/v3/smtp/email', data, config);
+    
+    console.log('✅ Email sent via API! Message ID:', response.data.messageId);
+    return response.data;
   } catch (error) {
-    console.error('❌ Nodemailer Error:');
-    console.error('Code:', error.code);
-    console.error('Message:', error.message);
-    if (error.response) console.error('Response:', error.response);
+    console.error('❌ Brevo API Error:');
+    if (error.response) {
+      console.error('Status:', error.response.status);
+      console.error('Data:', JSON.stringify(error.response.data));
+    } else {
+      console.error('Message:', error.message);
+    }
     throw error;
   }
 };
