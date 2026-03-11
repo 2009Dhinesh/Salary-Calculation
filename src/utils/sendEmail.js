@@ -9,7 +9,6 @@ const sendEmail = async (options) => {
   }
 
   console.log(`📧 Sending email to: ${options.email} via Brevo API`);
-  console.log(`🔑 Using API Key starting with: ${apiKey.substring(0, 10)}...`);
 
   try {
     const data = {
