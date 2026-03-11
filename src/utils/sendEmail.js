@@ -6,13 +6,20 @@ const sendEmail = async (options) => {
     throw new Error('SMTP is not configured. Please set real SMTP values in your .env file.');
   }
 
+  const isSecure = process.env.SMTP_PORT == 465;
+  
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: process.env.SMTP_PORT,
+    secure: isSecure, // true for 465, false for other ports
     auth: {
       user: process.env.SMTP_EMAIL,
       pass: process.env.SMTP_PASSWORD,
     },
+    // Add timeout to prevent long hangs
+    connectionTimeout: 10000, 
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
   });
 
   const message = {
