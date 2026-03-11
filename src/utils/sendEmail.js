@@ -1,12 +1,15 @@
 const axios = require('axios');
 
 const sendEmail = async (options) => {
-  // Check if API Key (SMTP Password) is configured
-  if (!process.env.SMTP_PASSWORD || process.env.SMTP_PASSWORD === 'your_smtp_password') {
-    throw new Error('Brevo API Key (SMTP_PASSWORD) is not configured in .env');
+  // Try to get BREVO_API_KEY or fallback to SMTP_PASSWORD
+  const apiKey = process.env.BREVO_API_KEY || process.env.SMTP_PASSWORD;
+
+  if (!apiKey || apiKey === 'your_smtp_password') {
+    throw new Error('Brevo API Key is not configured. Please set BREVO_API_KEY or SMTP_PASSWORD on Render.');
   }
 
   console.log(`📧 Sending email to: ${options.email} via Brevo API`);
+  console.log(`🔑 Using API Key starting with: ${apiKey.substring(0, 10)}...`);
 
   try {
     const data = {
@@ -24,7 +27,7 @@ const sendEmail = async (options) => {
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-        'api-key': process.env.SMTP_PASSWORD, // Brevo v3 API Key is the same as SMTP Password
+        'api-key': apiKey.trim(), // Ensure no leading/trailing spaces
       },
     };
 
