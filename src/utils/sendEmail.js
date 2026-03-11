@@ -23,9 +23,19 @@ const sendEmail = async (options) => {
     html: options.html,
   };
 
-  const info = await transporter.sendMail(message);
+  console.log(`📧 Sending email to: ${options.email} using ${process.env.SMTP_HOST}:${process.env.SMTP_PORT}`);
 
-  console.log('Message sent: %s', info.messageId);
+  try {
+    const info = await transporter.sendMail(message);
+    console.log('✅ Message sent: %s', info.messageId);
+    return info;
+  } catch (error) {
+    console.error('❌ Nodemailer Error:');
+    console.error('Code:', error.code);
+    console.error('Message:', error.message);
+    if (error.response) console.error('Response:', error.response);
+    throw error;
+  }
 };
 
 module.exports = sendEmail;
