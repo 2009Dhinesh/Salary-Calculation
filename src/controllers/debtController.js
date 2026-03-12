@@ -1,4 +1,5 @@
 const Account = require('../models/Account');
+const Debt = require('../models/Debt');
 const { checkAccountThresholds } = require('../utils/alertHelper');
 
 // Helper: update account balance
