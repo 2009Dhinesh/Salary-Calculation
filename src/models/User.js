@@ -1,0 +1,94 @@
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+
+const userSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, 'Name is required'],
+      trim: true,
+      maxlength: [50, 'Name cannot exceed 50 characters'],
+    },
+    email: {
+      type: String,
+      required: [true, 'Email is required'],
+      unique: true,
+      lowercase: true,
+      trim: true,
+      match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email'],
+    },
+    password: {
+      type: String,
+      required: [true, 'Password is required'],
+      minlength: [6, 'Password must be at least 6 characters'],
+      select: false,
+    },
+    avatar: {
+      type: String,
+      default: '',
+    },
+    currency: {
+      type: String,
+      default: 'INR',
+    },
+    theme: {
+      type: String,
+      enum: ['light', 'dark', 'system'],
+      default: 'system',
+    },
+    expectedIncomes: [
+      {
+        amount: { type: Number, required: true },
+        accountId: { type: mongoose.Schema.Types.ObjectId, ref: 'Account', required: true },
+        incomeType: { type: String, required: true },
+        customIncomeType: { type: String, default: '' },
+        expectedDate: { type: Number, required: true, min: 1, max: 31 }, // Day of the month
+      }
+    ],
+    notifications: {
+      budgetAlert: { type: Boolean, default: true },
+      weeklyReport: { type: Boolean, default: true },
+    },
+    resetPasswordOTP: String,
+    resetPasswordExpires: Date,
+    familyCode: {
+      type: String,
+      unique: true,
+      sparse: true, // Only some users might have them if created on demand, though better to generate for all
+    },
+    familyMembers: [
+      {
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        permissions: {
+          accessType: {
+            type: String,
+            enum: ['all', 'custom', 'none'],
+            default: 'none'
+          },
+          accounts: [
+            {
+              accountId: { type: mongoose.Schema.Types.ObjectId, ref: 'Account' },
+              canView: { type: Boolean, default: true },
+              canEdit: { type: Boolean, default: false }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  { timestamps: true }
+);
+
+// Hash password before saving
+userSchema.pre('save', async function () {
+  if (!this.isModified('password')) return;
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+});
+
+// Match password
+userSchema.methods.matchPassword = async function (enteredPassword) {
+  return await bcrypt.compare(enteredPassword, this.password);
+};
+
+module.exports = mongoose.model('User', userSchema);
